@@ -12,7 +12,7 @@
  * warned.
  */
 #ifdef DEBUG
-#define DEBUG_PRINT(x) printf x
+#define DEBUG_PRINT(x) //printf x
 #else
 #define DEBUG_PRINT(x)
 #endif
@@ -216,30 +216,29 @@ void* my_calloc(size_t num, size_t size)
 
 	return point;
 }
-void my_free(void* ptr)
-{
+void my_free(void* ptr){
   /* FIX ME */
 	metadata_t* meta = (metadata_t*)(((char*)ptr)-sizeof(metadata_t));
 	while(1){
-		print_list(freelist);
+		//print_list(freelist);
 		int size = (int)meta->size;
 		meta->in_use=0;
 		//If there are no blocks free of that size then just put it in the free list
 		if(freelist[getIndex(size)]==NULL){
 			add_to_back(freelist,getIndex(size),meta);
 			return;
-			printf("1\n");
+			//printf("1\n");
 		}else{
-			printf("2\n");
+			//printf("2\n");
 			int n = getIndex((int)meta->size)+4;
 			metadata_t* buddy = (metadata_t*)(((int)((int)meta-(int)heap))^((int)meta->size));
-						printf("3: n:%d p:%p\n",n,(void*)buddy);
+						//printf("3: n:%d p:%p\n",n,(void*)buddy);
 			int temp = 1<<n;
 			int bit = ((int)buddy&(int)temp)>>n;
 			//Get buddy
 			buddy = (metadata_t*)((int)buddy+(int)heap);
 			if(meta->size==buddy->size && buddy->in_use==0 ){
-								printf("4\n");
+								//printf("4\n");
 				if(bit){
 					//buddy is on the right side
 					meta->size*=2;
