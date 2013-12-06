@@ -1,0 +1,485 @@
+Debugging in C
+====================================================================
+
+  This guide is designed to teach you how, when, and why to use debugging
+tools in CS 2110. The tools used here are not the only ones available,
+but they are the ones we have found work best for this class. First, we
+will start off with the most important question: Why should I learn this 
+stuff?
+
+"Why Debug?" and C warnings
+================================
+
+  Many 2110 students are unfamiliar with the usefulness of debuggers
+because they are accustomed to modern, safe languages such as Java and
+Python: the languages taught in 1301 and 1331 (and their predecessors)
+are usually interpreted (or, if compiled natively, have extensive
+run-time checking).  As a result, array index or pointer errors do not
+go unnoticed and are easy to locate.  Unfortunately, C is not a
+friendly language in this respect.  Simple memory access errors will
+often cause the program to crash or, worse, still run while
+functioning incorrectly.  C programs are compiled to native code so, a
+bug will only cause your program to be stopped during execution when
+it attempts to access memory outside of your program's allowed memory
+space (and, less importantly, access misaligned data or divide by
+zero).  This means that you can easily and unknowingly corrupt data
+local to your own program, causing it to misbehave.  Many irritating
+bugs are caused by faulty code corrupting local data, which leads to
+other code misbehaving: when your program is terminated by the
+operating system, the lines of code that seem to be at fault may
+actually be correct but are malfunctioning due to earlier data
+corruption.  So what can we do?  Debuggers and debugger front-ends are
+useful tools that allow you to inspect and modify program data while
+the program is running to determine the cause of bugs and errors.
+
+
+================================
+Simple debugging techniques
+================================
+
+  First, I will cover the most basic debugging tools: gcc and splint. These
+may not seem like "debugging tools" at first, but they can both help you find
+errors in your code. Many times these errors will cause problems: possibly
+the ones you are having, or possibly ones you will have in the future if
+you don't fix the errors. The first step you should take in trying to fix
+a bug is to compile and splint your code. If this doesn't reveal your
+problem, then try other techniques.
+
+  The debugging method that I am sure you are all familiar with by now is
+debugging printf()s. While printf()s can reveal many problems, they are time
+consuming to write, annoying to decode output, and have some other issues.
+Having said that, here are some tips and tricks to make the most out of
+debugging printf()s.
+
+Using fflush() and stderr
+================================
+  So, let's say you are trying to find the cause of a segfault. You have
+tracked it down to the following section of code:
+
+void foo(int* ptr) {
+  int y;
+  /* Do some stuff */
+  printf("The pointer is: %p\n", ptr);
+  y = *ptr;
+  /* Do some stuff */
+}
+
+  When you run the code, you don't see the output from the printf(). The reason
+is that output from printf is buffered by the C library, and output from STDOUT
+is buffered by the operating system. When your program segfaults on *ptr, the
+output hasn't been flushed out of the buffer, and since your program gets 
+terminated, it never will. You can fix this by calling fflush(stdout) to tell
+the C library to flush you output to the OS immediately. What about the OS's
+buffer? If you use STDERR instead of STDOUT, the OS will not buffer it's output.
+Note that this can cause the order of (f)printf() calls to not match the order
+of output. Here is the revised code:
+
+  fprintf(stderr, "The pointer is: %p\n", ptr);
+  fflush(stderr); /* not needed for stderr since not buffered, 
+		     but doesn't hurt */
+  y = *ptr;
+
+  Now the fprintf() output is guaranteed to be printed to the screen before
+your program crashes.
+
+Conditional compilation with preprocessing directives
+================================
+Here is a trick you can use to turn on or off debugging output easily:
+
+#ifdef DEBUG
+  fprintf(stderr, "Your debugging info here.\n");
+  fflush(stderr);
+#endif
+
+Now, if you compile normally, all debugging code will be removed by the
+preprocessor. If you want to see your debugging output, compile with
+
+gcc -Werror -ansi -pedantic -Wall -O2 -DDEBUG program.c -o program
+
+Notice the -DDEBUG option. -d tells the compiler to set the DEBUG flag to 1
+(as opposed to not being set to anything, the value 1 is usually irrelevant).
+
+You can now use printf()s as much as you want without worrying about spurious
+output.
+
+================================
+A real debugger: gdb
+================================
+
+  GDB is an interactive command-line debugging tool. To use it, you run your
+program inside of gdb. It can start and stop execution, run line by line, and
+let you view and modify data in the middle of execution. It offers you far
+more control for finding where things are going wrong than printf()s. It takes
+a little while to get used to, but I promise it will be worth learning. This
+section goes over the command-line interface first, so you can get a feel for 
+how debugging actually works. The next section will go over a graphical 
+interface.
+
+Getting started with gdb
+================================
+  Before you can debug a program with gdb, you must first compile it with
+a special flag that tells gcc to put in debugging symbols into the program.
+If you don't compile with debugging symbols, when you run gdb you will see 
+assembly instructions, not your C code. Also, *VERY IMPORTANT*, do NOT use
+-g with -O2. Optimization will change your code so it doesn't follow the same
+order as your C code. If you debug with optimization, the debugger will *LIE*
+to you about what is happening.
+
+gcc -ansi -pedantic -Wall -g -o program program.c
+  * The -g flag tells gcc to include debugging symbols
+  * Note the absence of the -O2 flag. Do not use it when debugging.
+
+Now that we have our executable with debugging symbols, we can run gdb:
+
+[bash]$ gdb program  /* notice, executable, not file name */
+(gdb) Welcome...
+(gdb) 
+
+  GDB has started and has loaded your program, but has not started running it 
+yet. It gives you a chance to define breakpoints, places where you want the
+program to pause so you can peek around, before you start running the program.
+To start the program, type
+
+(gdb) run
+
+If you want to run with arguments,  
+
+(gdb) run <arguments>
+
+When you want to exit the gdb prompt, type
+
+(gdb) quit
+
+Tip: gdb understands short version of the commands, for example r instead of
+  run, q instead of quit, n instead of next, bt instead of backtrace, ...
+
+Breakpoints
+================================
+  As explained before, breakpoints are marked lines of code where gdb will 
+pause execution and let you run step by step. You can put breakpoints on
+specific line numbers, or on a function.
+
+(gdb) break program.c:25
+  - Set a breakpoint on line 25 of program.c
+(gdb) break foo
+  - Set a breakpoint at the beginning of function foo()
+
+To list the current breakpoints set,
+
+(gdb) info breakpoints
+
+To remove a breakpoint,
+
+(gdb) delete program.c:25
+
+  Once a breakpoint is set, if the execution hits the line of code that the
+breakpoint is on, gdb will pause and give you a prompt.
+
+Moving around
+================================
+  So now we compiled with debugging symbols, ran gdb, set breakpoints, and
+typed run. The program ran to the first breakpoint and gave us the (gdb)
+prompt. It now shows the current line of code it is about to execute. Here
+is how you can move around to trace execution of your program:
+
+(gdb) step
+  - Moves to the next line of code executed in any function. (ex: if
+   the current line is foo(5), this will go to the code for foo().
+
+(gdb) next
+  - Moves to the next line of code in the current function.
+
+(gdb) list
+  - Show the lines of code near the current line.
+
+(gdb) until program.c:40
+  - Continues execution until it reaches line 40 of program.c.
+
+(gdb) finish
+  - Continues execution until the current function returns.
+
+(gdb) continue
+  - Continues execution until the next breakpoint is reached, or the program
+    terminates.
+
+Viewing / Modifying data
+===============================
+  Now you want to find out the value of a variable. Here are some Data viewing /
+modification commands.
+
+(gdb) print i
+  - print the contents of variable i
+    Note: you can print any valid C expression, like i + 7 or array[5]
+
+(gdb) display i
+  - show the value of i after every next / step
+
+(gdb) ptype i
+  - show the type of variable i
+
+(gdb) set variable i = 20;
+  - set the value of i to 20
+
+(gdb) backtrace
+  - display the activation stack (the order that functions have been called,
+    and their parameters)
+
+(gdb) frame 3
+  - switch context to frame #3 (from the list in backtrace)
+    Note: This will let you see the vale of variables of other functions
+      on the stack.
+
+An example using gdb
+================================
+This section will walk you through a simple debugging session. Go ahead and
+look though the code in debug1.c, then follow the instructions below.
+
+First, lets see what actually happens when you forget to use debugging symbols.
+It will help you to recognize the gdb output, in case you accidentally do it.
+
+* Compile debug1 without -g
+    gcc -o debug1 debug1.c
+
+* Start GDB
+    gdb debug1
+    Note that you send the executable as the parameter, not the code.
+
+* Set a breakpoint for function foo()
+    (gdb) break foo
+
+* Start execution
+    (gdb) run
+    Notice the hex address of the breakpoint
+
+* Step the execution by one line
+    (gdb) next
+    Notice the message gdb gives you.
+
+* Quit GDB
+    (gdb) quit
+
+See how completely unuseful that was. Now let's try the real thing.
+
+* Compile debug1 with -g
+    gcc -g -o debug1 debug1.c
+
+* Start GDB
+    gdb debug1
+
+* Set a breakpoint for function foo()
+    (gdb) break foo
+    Notice the file name and line number.
+
+* Start execution
+    (gdb) run
+    Notice function name, parameter value, and line number
+
+* Step the execution by one line
+    (gdb) next
+    Notice how gdb tells you the line it will execute next.
+
+* Print the value of x
+    (gdb) print x
+    Notice that the line printed has not beet run yet.
+
+* Step execution
+    (gdb) next
+
+* Print x again
+    (gdb) print x
+    Now the value has changed.
+
+* Let's see how we got to foo()
+    (gdb) backtrace
+    Notice it shows you the order of function calls and the parameters each
+    was called with. The frame numbers are the numbers in brackets on the left.
+
+* Let's look at some variables in bar() when it called foo()
+    (gdb) frame 1
+
+* Let's take a look at the code for bar()
+    (gdb) list
+
+* Print the value of k
+    (gdb) print k
+    Notice that it is uninitialized. This value isn't useful.
+
+* Even though we are looking at stuff in bar(), execution is still paused in
+  foo(). Let's let foo() run until it returns.
+    (gdb) finish
+
+* GDB has executed the call to foo(), but hasn't finished this line yet.
+    (gdb) print k
+    Notice that it is still uninitialized.
+
+* Step to the next line, to finish the assignment for k.
+    (gdb) next
+
+* Print k
+    (gdb) print k
+    Now it has been set.
+
+* Print str
+    (gdb) print str
+    Notice that gdb can interpret char* as a null-terminated string.
+
+* Finish executing the program
+    (gdb) continue
+    Note that this would have paused if it had hit another breakpoint.
+
+* Quit GDB
+    (gdb) quit
+
+================================
+Finding memory errors with Valgrind
+================================
+
+  Tools like GDB are used to step through code to try to figure out
+where something went wrong. Valgrind is a tool that checks all of the memory
+accesses you program makes. It will check for writes to unallocated areas of
+memory (even if they don't segfault), use of uninitialized values, and memory
+leaks. It can help you find the kinds of errors that may not show up all of the
+time.
+
+Running your program in valgrind
+================================
+  Valgrind is very similar to gdb, except that it has no interactive prompt. It
+runs your program, watches over its memory accesses, and reports when it finds
+an error. At the end, it gives you a summary and reports any memory leaks found.
+Like gdb, you must compile with debugging symbols for it to tell you useful
+information. To run it, use the following command:
+
+valgrind --leak-check=yes --show-reachable=yes ./<prog>
+
+Examples
+================================
+  There are three examples that you can run with valgrind to see some general
+types of error messages. First, look through the .c files, then run them in 
+valgrind. Remember to compile with debugging symbols. Here I will describe how
+to interpret the error messages:
+
+valgrind1 - out of bounds write / memory leak
+
+==17111== Invalid write of size 4
+==17111==    at 0x804836A: main (valgrind1.c:11)
+==17111==    by 0x40259AB6: __libc_start_main (in /lib/libc-2.3.2.so)
+==17111==    by 0x8048298: ??? (start.S:81)
+==17111==    Address 0x411CF0EC is 0 bytes after a block of size 200 alloc'd
+==17111==    at 0x4002AC4D: malloc (vg_replace_malloc.c:153)
+==17111==    by 0x8048344: main (valgrind1.c:8)
+==17111==    by 0x40259AB6: __libc_start_main (in /lib/libc-2.3.2.so)
+==17111==    by 0x8048298: ??? (start.S:81)
+
+  This is caused by the for loop iterating 1 to far, and writing outside the
+bounds of the array. The size 4 is due the to size on an int. You can find what
+part of your code caused the error by looking at the "at " lines. The first
+at line tells you were in invalid write occurred, and the second at line tells
+you where the original malloc was for the area that was written past. Note
+you sometimes have to look a line or two below the at line to find which
+part of *your* code caused the error.
+
+==17111== 200 bytes in 1 blocks are definitely lost in loss record 1 of 1
+==17111==    at 0x4002AC4D: malloc (vg_replace_malloc.c:153)
+==17111==    by 0x8048344: main (valgrind1.c:8)
+==17111==    by 0x40259AB6: __libc_start_main (in /lib/libc-2.3.2.so)
+==17111==    by 0x8048298: ??? (start.S:81)
+==17111== 
+==17111== LEAK SUMMARY:
+==17111==    definitely lost: 200 bytes in 1 blocks.
+==17111==    possibly lost:   0 bytes in 0 blocks.
+==17111==    still reachable: 0 bytes in 0 blocks.
+==17111==         suppressed: 0 bytes in 0 blocks.
+
+  This output tells you that there was a memory leak. The frist by line here
+tells you where the malloc call was made that never got freed.
+
+
+valgrind2 - uninitialized value
+
+==17115== Conditional jump or move depends on uninitialized value(s)
+==17115==    at 0x8048382: main (valgrind2.c:8)
+==17115==    by 0x40259AB6: __libc_start_main (in /lib/libc-2.3.2.so)
+==17115==    by 0x80482CC: ??? (start.S:81)
+
+  This error tells you that you allocated space, then tested on the value
+stored in that space without first setting it. This usually happens when you
+allocate space for a struct and forget to set all of the fields. This is 
+usually followed by a segfault, but not always.
+
+==17115== No malloc'd blocks -- no leaks are possible.
+
+This line tells you you are free of memory leaks.
+
+
+valgrind3 - zero pages with strings / printf error
+
+==17119== Invalid read of size 1
+==17119==    at 0x40023216: strlen (mac_replace_strmem.c:164)
+==17119==    by 0x4028E00D: _IO_vfprintf_internal (in /lib/libc-2.3.2.so)
+==17119==    by 0x40296351: _IO_printf (in /lib/libc-2.3.2.so)
+==17119==    by 0x80483E7: main (valgrind3.c:15)
+==17119==    Address 0x411CF029 is 0 bytes after a block of size 5 alloc'd
+==17119==    at 0x4002AC4D: malloc (vg_replace_malloc.c:153)
+==17119==    by 0x80483A9: main (valgrind3.c:7)
+==17119==    by 0x40259AB6: __libc_start_main (in /lib/libc-2.3.2.so)
+==17119==    by 0x8048300: ??? (start.S:81)
+
+  This one requires a bit of explaining. When you look at the code, the 
+problem is apparent: the string isn't null terminated. The most disturbing
+thing about this is that it works! If you run this outside of valgrind, you
+would never know anything was wrong. The reason for this is that when you
+request memory for the first time, it is usually zeroed out, so even if you
+forget a null terminator, the next byte will happen to be a zero. However, 
+after you call free, the next malloc will probably give you the same block
+back, and you code will fail. Valgrind will let you know something bad is
+happening even if it doesn't cause any problems.
+
+  The other odd thing about this is that the actual error occurs in strlen,
+which is being called by printf. It is not your code that is causing the
+error, it is the C library. This is a classic example of how making a mistake
+in one place can cause an error way down the road. printf() is trying to
+find out how long this string it so it can print it, and strlen is what is
+actually doing the out of bounds read.
+
+================================
+What should I do when...
+================================
+  This section give you some general procedures to go through when you 
+encounter common problems.
+
+My code isn't working the way I expect it to
+================================
+  1. Check for related gcc warnings and splint errors.
+  2. Use debugging printf()s to find the problem, or at least narrow the 
+     search.
+  3. Use gdb or and walk through the area of code that has the problem.
+  4. In some cases, valgrind can point out ways you are using memory incorrectly
+     that can cause unexpected errors later on.
+  5. Failing all above techniques, ask a TA.
+
+I have an infinite loop
+================================
+  This is one of the places where gdb comes in handy. First, compile with 
+debugging symbols, load your program in gdb, and run it. When it is in
+the infinite loop, press Ctrl-C to send it an interrupt signal. GDB will catch
+it and pause your program. Now you can see what loop you are in, and step 
+through to see why the loop isn't terminating.
+
+I have a segfault
+================================
+  Again, gdb is the key. Compile for debugging, and run in gdb or ddd. GDB will
+stop on the exact line that is causing the segfault, and you can print the
+values of variables to see what caused the segfault.
+
+My output is correct, but I want to be *sure* the code is correct
+================================
+  Once your at this stage, you want to use valgrind. For valgrind,
+make sure you run it so that every part of your program is executed. It can 
+only catch memory errors that happen during the course of execution.
+
+
+
+  This guide is a lot to take in a once, so it's okay if you feel overwhelmed.
+Don't expect to be able to learn all of this a once, but keep this around as
+a reference because you will need to use many of these tools and methods
+eventually.
