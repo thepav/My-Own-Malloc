@@ -207,19 +207,14 @@ void* my_calloc(size_t num, size_t size)
 		ERRNO=SINGLE_REQUEST_TOO_LARGE; //because single request is supposed to trump out of memory
 		return NULL;
 	}
-	void point[num];
-	for(int i =0;i<num;i++){
-		(point)[i] = my_malloc(size);
-	}
+	void* point=my_malloc(num*size); // Just assuming that the total size is less than 2kb
+
+	//initializing all the data to 0s
 	for(int i =0;i<num*size;i++){
 		((char*)point)[i] = 0;
 	}
 
 	return point;
-
-
-
-  return NULL;
 }
 void my_free(void* ptr)
 {
