@@ -206,7 +206,7 @@ void* my_calloc(size_t num, size_t size)
 	for(int i =0;i<num*size;i++){
 		((char*)point)[i] = 0;
 	}
-
+	ERRNO= NO_ERROR;
 	return point;
 }
 void my_free(void* ptr){
@@ -222,6 +222,7 @@ void my_free(void* ptr){
 		//If there are no blocks free of that size then just put it in the free list
 		if(freelist[getIndex(size)]==NULL){
 			add_to_back(freelist,getIndex(size),meta);
+			ERRNO= NO_ERROR;
 			return;
 		}else{
 			int n = getIndex((int)meta->size)+4;
@@ -247,6 +248,7 @@ void my_free(void* ptr){
 				}
 			}else{
 				add_to_back(freelist,getIndex(size),meta);
+				ERRNO= NO_ERROR;
 				return;	
 			}
 
@@ -258,6 +260,9 @@ void* my_memmove(void* dest, const void* src, size_t num_bytes)
 {
   //Get a buffer to store the data to the moved
   char* buffer = my_malloc(num_bytes);
+  if(buffer==NULL){
+  	return; //error code should already be set by malloc
+  }
   for(int i =0;i<num_bytes;i++){
   	buffer[i]=((char*)src)[i];
   }
@@ -265,5 +270,6 @@ void* my_memmove(void* dest, const void* src, size_t num_bytes)
   for(int i =0;i<num_bytes;i++){
   	((char*)dest)[i] = buffer[i];
   }
+  ERRNO= NO_ERROR;
   return dest;
 }
