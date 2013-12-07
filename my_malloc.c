@@ -51,6 +51,7 @@ metadata_t* freelist[8];
  * freelist[7] -> 2048
  */
  void breakBlock(int biggerIndex,int smallerIndex);
+//A method to the get the freelist index given a size in bytes
 int getIndex(int size){
 	if(size==16){
 		return 0;
@@ -70,7 +71,7 @@ int getIndex(int size){
 		return 7;
 	}
 }
-
+//Prints detailed information about the current freelist
 void print_list(metadata_t* list[8])
 {
 	int i;
@@ -111,7 +112,7 @@ void* my_malloc(size_t size)
 		}
 		heap = my_sbrk(SBRK_SIZE);
 		if(heap==(void*)-1){
-			// TODO set error code 
+			ERRNO=OUT_OF_MEMORY;
 			return NULL;
 		}
 
@@ -123,17 +124,6 @@ void* my_malloc(size_t size)
 		freelist[7] = newBlock;
 	}
 
-	//Check to see if all memory is full
-	int allFull = 1;
-	for(int i =0;i<8;i++){
-		if(freelist[i]!=NULL){
-			allFull=0;
-		}
-	}
-	if(allFull){
-		ERRNO=OUT_OF_MEMORY;
-		return NULL;
-	}
 
 	int index = 0;
 	//figure out the size of the block to satisfy
@@ -163,7 +153,7 @@ void* my_malloc(size_t size)
 		}else{
 			void* point = my_sbrk(SBRK_SIZE);
 			if(point==(void*)-1){
-				// TODO set error code 
+				ERRNO=OUT_OF_MEMORY;
 				return NULL;
 			}
 			metadata_t* newBlock = (metadata_t*)point;
@@ -183,9 +173,12 @@ void* my_malloc(size_t size)
 	}
 
 }
+//Iteratively breaks larger blocks into smaller blocks in the freelist until you have the size you need.
 void breakBlock(int biggerIndex,int smallerIndex){
 	for(int i =biggerIndex;i>smallerIndex;i--){
+		//Remove your big block from the freelist
 		metadata_t* big = remove_head(freelist,i);
+		//Half your current block
 		big->size/=2;
 
 		// Create new half
@@ -217,28 +210,27 @@ void* my_calloc(size_t num, size_t size)
 	return point;
 }
 void my_free(void* ptr){
-  /* FIX ME */
-	metadata_t* meta = (metadata_t*)(((char*)ptr)-sizeof(metadata_t));
+  	metadata_t* meta = (metadata_t*)(((char*)ptr)-sizeof(metadata_t));
+	//See if the block you're trying to free is actually in need of being freed
+	if(meta->in_use!=1){
+		ERRNO=DOUBLE_FREE_DETECTED;
+		return;
+	}
 	while(1){
-		//print_list(freelist);
 		int size = (int)meta->size;
 		meta->in_use=0;
 		//If there are no blocks free of that size then just put it in the free list
 		if(freelist[getIndex(size)]==NULL){
 			add_to_back(freelist,getIndex(size),meta);
 			return;
-			//printf("1\n");
 		}else{
-			//printf("2\n");
 			int n = getIndex((int)meta->size)+4;
 			metadata_t* buddy = (metadata_t*)(((int)((int)meta-(int)heap))^((int)meta->size));
-						//printf("3: n:%d p:%p\n",n,(void*)buddy);
 			int temp = 1<<n;
 			int bit = ((int)buddy&(int)temp)>>n;
-			//Get buddy
+			//Get buddy address
 			buddy = (metadata_t*)((int)buddy+(int)heap);
 			if(meta->size==buddy->size && buddy->in_use==0 ){
-								//printf("4\n");
 				if(bit){
 					//buddy is on the right side
 					meta->size*=2;
@@ -269,6 +261,7 @@ void* my_memmove(void* dest, const void* src, size_t num_bytes)
   for(int i =0;i<num_bytes;i++){
   	buffer[i]=((char*)src)[i];
   }
+  //Copy the data over from the buffer to your destination
   for(int i =0;i<num_bytes;i++){
   	((char*)dest)[i] = buffer[i];
   }

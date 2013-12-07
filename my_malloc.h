@@ -64,6 +64,7 @@ void* my_memmove(void* dest, const void* src, size_t num_bytes);
  * odd? hopefully reading the NFO file will help you understand this.
  */
 void* my_sbrk(int);
+void print_list(metadata_t* list[8]);
 
 static inline double fastlog2 (double x)
 {
@@ -76,5 +77,6 @@ static inline double fastlog2 (double x)
              - 1.498030302f * mx.f 
              - 1.72587999f / (0.3520887068f + mx.f);
 }
+extern metadata_t* freelist[8];
 
 #endif /* __MY_MALLOC_H__ */
