@@ -1,65 +1,56 @@
+//Pavleen Thukral
+
 #include "my_malloc.h"
 
 
 metadata_t* remove_head(metadata_t** freelist, int index){
-		//printf("6 index: %d\n",index);
-
 	metadata_t* head = freelist[index];
-		//printf("7: %d\n",(head==NULL));
-
+	//really simple
 	freelist[index] = head->next;
-		//printf("8\n");
 	if(((metadata_t*)freelist[index])!=NULL){
 		((metadata_t*)freelist[index])->prev = NULL;
 	}
-		//printf("9\n");
-
 	head->next = NULL;
-		//printf("10\n");
-
 	head->prev = NULL;
-			//printf("11\n");
-
 	return head;
 }
 
 
 metadata_t* add_to_back(metadata_t** freelist,int index, metadata_t* node){
 	metadata_t* head = freelist[index];
-			//printf("20\n");
-
+	// If the list is empty
 	if(head==NULL){
 		freelist[index] = node;
 		node->next = NULL;
 		node->prev = NULL;
-				//printf("21\n");
- 
 		return node;
 	}else{
+	// If the list is not empty
 		metadata_t* n = head;
 		while(n->next!=NULL){
 			n = n->next;
 		}
-						//printf("22\n");
-
 		n->next = node;
 		node->prev = n;
 		node->next =NULL;
-						//printf("23\n");
-
 		return node;
 	}
 }
 
+//Remove a particular node from a linked list in the freelist
 metadata_t* removeNode(metadata_t** freelist, int index,metadata_t* node){
+	
 	if(node->prev==NULL && node->next==NULL){
+		//When this node is the only node in the linked list 
 		freelist[index]= NULL;
 		return node;
 	}else if(node->prev==NULL){
+		//When this node is the first node in the linked list
 		freelist[index] = node->next;
 		node->next->prev= NULL;
 		return node;
 	}else if(node->next==NULL){
+		//When this node is the last node in the linked list
 		node->prev->next = NULL;
 		return node;
 	}else{
@@ -70,6 +61,7 @@ metadata_t* removeNode(metadata_t** freelist, int index,metadata_t* node){
 
 }
 
+//Simply prints the size of each linked list in the freelist
 void printListSizes(metadata_t** freelist){
 printf("Sizes: ");
 
