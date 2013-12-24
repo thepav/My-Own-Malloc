@@ -38,4 +38,4 @@ These pointers just exist to maintain links between blocks that are free. It is 
 
 Install
 =====
-The installation of this code is simple. There is no extra setup needed since none of the function names in this code use the same names as system commands. Simply add 'my_' to the beginning of a command implemented in this code. ex. my_malloc instead of malloc. Make sure to include the 
+The installation of this code is simple. There is no extra setup needed since none of the function names in this code use the same names as system commands. Simply add 'my_' to the beginning of a command implemented in this code. ex. my_malloc instead of malloc. Make sure to include my_malloc.h and my_malloc.h in your Makefile.
